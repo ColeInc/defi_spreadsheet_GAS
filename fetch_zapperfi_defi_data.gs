@@ -15,7 +15,7 @@ function main_fetch_defi_balances() {
   const zapperfi_json_responses = zapperfi_get_balances_list(zapperfi_api_key, protocol_network_pairs, wallet_address_list);
   const final_formatted_json = format_zapperfi_json_responses(zapperfi_json_responses);
   const final_formatted_data = construct_spreadsheet_data(final_formatted_json);
-  // update_defi_spreadsheet(final_formatted_data);
+  update_defi_spreadsheet(final_formatted_data);
 };
 
 
@@ -143,8 +143,6 @@ zapperfi_get_balances_list = (zapperfi_api_key, protocol_list, wallet_address_li
 
 
 update_daily_staging_hub = (valid_protocols_array) => {
-  // console.log(valid_protocols_array[1])
-
   let source_ss = SpreadsheetApp.getActiveSpreadsheet();
   let daily_staging_sheet = source_ss.getSheetByName("daily_staging_hub");
   let counter = 0;
@@ -197,17 +195,14 @@ format_zapperfi_json_responses = (raw_zapperfi_json_responses) => {
   // each value being iterated here is an array filled with strings, each string being a stringified json object.
   for (const i in raw_zapperfi_json_responses) {
     const array_of_responses = raw_zapperfi_json_responses[i];
-    // console.log("raw json: ", raw_zapperfi_json_responses[i]);
 
     // for each string inside the array of strings:
     for (const record in array_of_responses) {
-      // console.log("record: ", array_of_responses[record]);
 
       const keys = Object.keys(array_of_responses[record]);
       const wallet_address = keys[0];
       const current_record = JSON.parse(array_of_responses[record][wallet_address]);
       const label = current_record.label;
-      // console.log("label: ", label);
 
       const asset_resp = extract_assets(current_record.assets, wallet_address);
 
@@ -382,7 +377,7 @@ extract_token = (token_array) => {
   for (const val in token_array) {
     const token_json = token_array[val];
 
-    if (token_json.type === "interest-bearing" || token_json.type === "base" || token_json.type === "pool" || token_json.type === "vault" || token_json.type === "wallet") {
+    if (token_json.type === "interest-bearing" || token_json.type === "base" || token_json.type === "pool" || token_json.type === "vault") {
       const token_response = {
         network: token_json.network,
         address: token_json.address,
@@ -390,7 +385,7 @@ extract_token = (token_array) => {
         label: token_json.label ? token_json.label : '',
         quantity: token_json.balance,
         balanceUSD: token_json.balanceUSD,
-        priceUSD: token_json.priceUSD,
+        priceUSD: token_json.price,
         borrowApy: token_json.borrowApy ? token_json.borrowApy : 0,
         supplyApy: token_json.supplyApy ? token_json.supplyApy : 0,
       };
@@ -404,26 +399,26 @@ extract_token = (token_array) => {
       console.log("Other token type identified! Not getting captured --> ", token_json.type, token_json);
     }
   }
+  // console.log("final token: ", final_token_stats)
   return final_token_stats;
 };
 
 
 construct_spreadsheet_data = (protocol_stats_array) => {
 
-  //  Ticker | Name | Protocol | Asset Type |	Quantity | Balance (NZD) | Supply APY |	Borrow APY | Is Loan? |	Network	| Wallet
+  //  Ticker | Name | Protocol | Asset Type | Quantity | Balance (NZD) | Supply APY |	Borrow APY | Is Loan? |	Network	| Wallet
 
 let spreadsheet_rows = [];
 
 // for each protocol:
   for (const protocol_balance in protocol_stats_array) {
     const protocol = protocol_stats_array[protocol_balance]
-    console.log("protocol: ", protocol_stats_array[protocol_balance])
+    // console.log("protocol: ", protocol_stats_array[protocol_balance])
 
     // for each list of assets
     for (const asset_array in protocol) {
       const assets = protocol[asset_array]
       const current_wallet = asset_array;
-      console.log("assets_array: ", protocol[asset_array])
 
       // for each asset
       for (const asset in assets) {
@@ -432,21 +427,31 @@ let spreadsheet_rows = [];
         const balanceUSD = a.balanceUSD;
         const appName = a.appName;
         const tokens = a.tokens;
-        const isLoan = a.isLoan ? 'YES' : ''
+        const isLoan = a.isLoan ? 'YES' : '-'
         console.log("current asset: ", assets[asset]);
 
         // for each token found in this asset
         for (const token in tokens) {
           const t = tokens[token];
-          const sAPY = (t.supplyAPY === undefined) ? '' : t.supplyAPY;
-          const bAPY = (t.borrowAPY === undefined) ? '' : t.borrowAPY;
-          console.log("current token: ", t);
+          const sAPY = (t.supplyApy === 0) ? '0' : (t.supplyApy * 100).toString() + '%';
+          const bAPY = (t.borrowApy === 0) ? '0' : (t.borrowApy * 100).toString() + '%';
           
-          spreadsheet_rows.push([[t.symbol], [t.label], [appName], [type], [t.quantity], [balanceUSD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
+          spreadsheet_rows.push([[appName], [t.symbol], [t.label], [type], [t.quantity], [balanceUSD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
         }
-
       }
     }
   }
   console.log("final spreadsheet_rows: ", spreadsheet_rows)
+  return spreadsheet_rows;
 };
+
+
+update_defi_spreadsheet = (final_formatted_data) => {
+
+  const source_ss = SpreadsheetApp.getActiveSpreadsheet();
+  const defi_summary_spreadsheet = source_ss.getSheetByName("DeFi Summary");
+  const row_count = final_formatted_data.length;
+
+  const range = defi_summary_spreadsheet.getRange(`A2:K${row_count + 1}`)
+  range.setValues(final_formatted_data);
+}
