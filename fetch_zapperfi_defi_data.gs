@@ -454,4 +454,9 @@ update_defi_spreadsheet = (final_formatted_data) => {
 
   const range = defi_summary_spreadsheet.getRange(`A2:K${row_count + 1}`)
   range.setValues(final_formatted_data);
+
+  // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
+  const cellsToClear = 20;
+  const clearRange = defi_summary_spreadsheet.getRange(`A${row_count + 2}:K${row_count + (cellsToClear+2)}`)
+  clearRange.clearContent();
 }
