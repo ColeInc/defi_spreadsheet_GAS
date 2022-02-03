@@ -16,6 +16,7 @@ function main_fetch_defi_balances() {
   const final_formatted_json = format_zapperfi_json_responses(zapperfi_json_responses);
   const final_formatted_data = construct_spreadsheet_data(final_formatted_json);
   update_defi_spreadsheet(final_formatted_data);
+  this.arrayThis("DeFi Summary!L1:L");
 };
 
 
@@ -208,7 +209,7 @@ format_zapperfi_json_responses = (raw_zapperfi_json_responses) => {
 
       final_protocol_stats[label] ? Object.assign(final_protocol_stats[label], asset_resp) : final_protocol_stats[label] = asset_resp;
     }
-    // console.log("final_protocol_stats", final_protocol_stats);
+    console.log("final_protocol_stats", final_protocol_stats);
     return final_protocol_stats;
   }
 };
@@ -408,7 +409,9 @@ construct_spreadsheet_data = (protocol_stats_array) => {
 
   //  Ticker | Name | Protocol | Asset Type | Quantity | Balance (NZD) | Supply APY |	Borrow APY | Is Loan? |	Network	| Wallet
 
-let spreadsheet_rows = [];
+let spreadsheet_protocol_rows = [];
+let spreadsheet_wallet_rows = [];
+const exchange_rate = fetch_NZD_USD_exchange_rate();
 
 // for each protocol:
   for (const protocol_balance in protocol_stats_array) {
@@ -424,7 +427,7 @@ let spreadsheet_rows = [];
       for (const asset in assets) {
         const a = assets[asset]
         const type = a.type.toUpperCase();
-        const balanceUSD = a.balanceUSD;
+        const balanceNZD = a.balanceUSD * exchange_rate;
         const appName = a.appName;
         const tokens = a.tokens;
         const isLoan = a.isLoan ? 'YES' : '-'
@@ -436,13 +439,29 @@ let spreadsheet_rows = [];
           const sAPY = (t.supplyApy === 0) ? '0' : (t.supplyApy * 100).toString() + '%';
           const bAPY = (t.borrowApy === 0) ? '0' : (t.borrowApy * 100).toString() + '%';
           
-          spreadsheet_rows.push([[appName], [t.symbol], [t.label], [type], [t.quantity], [balanceUSD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
+          if (type === 'WALLET' || type === 'CLAIMABLE') {
+            const real_name = (type === 'WALLET') ? 'WALLET' : 'CLAIMABLE';
+            spreadsheet_wallet_rows.push([[real_name], [t.symbol], [t.label], [type], [t.quantity], [balanceNZD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
+          } else {
+            spreadsheet_protocol_rows.push([[appName], [t.symbol], [t.label], [type], [t.quantity], [balanceNZD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
+          }
         }
       }
     }
   }
-  console.log("final spreadsheet_rows: ", spreadsheet_rows)
-  return spreadsheet_rows;
+
+  // console.log("BEFORE sort: ", spreadsheet_protocol_rows)
+
+  // sort final spreadsheet_rows array:
+  const sorted_protocols = spreadsheet_protocol_rows.sort(function(a, b) {
+    return Math.abs(b[5]) - Math.abs(a[5]);
+  });
+  // const sorted_wallet = spreadsheet_wallet_rows.sort(function(a, b) {
+  //   return Math.abs(b[5]) - Math.abs(a[5]);
+  // });
+
+  // console.log("SORTED: ", sorted_protocols)
+  return sorted_protocols.concat(spreadsheet_wallet_rows);
 };
 
 
@@ -456,7 +475,14 @@ update_defi_spreadsheet = (final_formatted_data) => {
   range.setValues(final_formatted_data);
 
   // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
-  const cellsToClear = 20;
-  const clearRange = defi_summary_spreadsheet.getRange(`A${row_count + 2}:K${row_count + (cellsToClear+2)}`)
-  clearRange.clearContent();
+  const cells_to_clear = 20;
+  const clear_range = defi_summary_spreadsheet.getRange(`A${row_count + 2}:K${row_count + (cells_to_clear+2)}`)
+  clear_range.clearContent();
 }
+
+
+fetch_NZD_USD_exchange_rate = () => {
+  const full_json = JSON.parse(get_coin_info('DAI'));
+  const exchange_rate = full_json.data.DAI.quote.NZD.price
+  return exchange_rate
+};
