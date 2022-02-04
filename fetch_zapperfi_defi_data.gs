@@ -10,11 +10,13 @@ function daily_worldwide_crawl() {
 
 // Can be triggered on any edit/refresh of the DeFi Spreadsheet. Takes the list of protocol/network pairs from the staging spreadsheet and iterates through them fetching live values of balances in each protocol.
 function main_fetch_defi_balances() {
-  const {wallet_address_list, zapperfi_api_key} = getConstants();
+  const {wallet_address_list, zapperfi_api_key, terra_luna_address} = getConstants();
   const protocol_network_pairs = fetch_daily_staging_hub();
+  const anchor_balance = fetch_terra_protocols(terra_luna_address);
+  const anchor_balances_array = !anchor_balance ? false : format_terra_data(anchor_balance, terra_luna_address);
   const zapperfi_json_responses = zapperfi_get_balances_list(zapperfi_api_key, protocol_network_pairs, wallet_address_list);
   const final_formatted_json = format_zapperfi_json_responses(zapperfi_json_responses);
-  const final_formatted_data = construct_spreadsheet_data(final_formatted_json);
+  const final_formatted_data = construct_spreadsheet_data(final_formatted_json, anchor_balances_array);
   update_defi_spreadsheet(final_formatted_data);
   this.arrayThis("DeFi Summary!L1:L");
 };
@@ -75,16 +77,6 @@ format_protocol_list = (json_response) => {
 
 
 zapperfi_get_balances_list = (zapperfi_api_key, protocol_list, wallet_address_list) => {
-
-  // protocol_list = { 
-  //   aave: 'ethereum',
-  //   'aave-v2': 'avalanche',
-  //   geist: 'fantom',
-  //   aavegotchi: 'polygon',
-  //   abracadabra: 'arbitrum,avalanche,ethereum,fantom',
-  //   curve: 'avalanche,fantom',
-  //   traderjoe: 'avalanche'
-  // };
 
   let protocol_responses = [];
   let valid_protocol_network_pairs = [];
@@ -209,7 +201,7 @@ format_zapperfi_json_responses = (raw_zapperfi_json_responses) => {
 
       final_protocol_stats[label] ? Object.assign(final_protocol_stats[label], asset_resp) : final_protocol_stats[label] = asset_resp;
     }
-    console.log("final_protocol_stats", final_protocol_stats);
+    // console.log("final_protocol_stats", final_protocol_stats);
     return final_protocol_stats;
   }
 };
@@ -405,7 +397,7 @@ extract_token = (token_array) => {
 };
 
 
-construct_spreadsheet_data = (protocol_stats_array) => {
+construct_spreadsheet_data = (protocol_stats_array, anchor_balances_array) => {
 
   //  Ticker | Name | Protocol | Asset Type | Quantity | Balance (NZD) | Supply APY |	Borrow APY | Is Loan? |	Network	| Wallet
 
@@ -431,36 +423,34 @@ const exchange_rate = fetch_NZD_USD_exchange_rate();
         const appName = a.appName;
         const tokens = a.tokens;
         const isLoan = a.isLoan ? 'YES' : '-'
-        console.log("current asset: ", assets[asset]);
+        // console.log("current asset: ", assets[asset]);
 
         // for each token found in this asset
         for (const token in tokens) {
           const t = tokens[token];
           const sAPY = (t.supplyApy === 0) ? '0' : (t.supplyApy * 100).toString() + '%';
           const bAPY = (t.borrowApy === 0) ? '0' : (t.borrowApy * 100).toString() + '%';
+          const label = (t.label.length > 0) ? t.label : t.symbol;
           
           if (type === 'WALLET' || type === 'CLAIMABLE') {
             const real_name = (type === 'WALLET') ? 'WALLET' : 'CLAIMABLE';
-            spreadsheet_wallet_rows.push([[real_name], [t.symbol], [t.label], [type], [t.quantity], [balanceNZD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
+            spreadsheet_wallet_rows.push([[real_name], [t.symbol], [label], [type], [t.quantity], [balanceNZD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
           } else {
-            spreadsheet_protocol_rows.push([[appName], [t.symbol], [t.label], [type], [t.quantity], [balanceNZD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
+            spreadsheet_protocol_rows.push([[appName], [t.symbol], [label], [type], [t.quantity], [balanceNZD], [sAPY], [bAPY], [isLoan], [t.network], [current_wallet]]);
           }
         }
       }
     }
   }
 
-  // console.log("BEFORE sort: ", spreadsheet_protocol_rows)
+  // if any terra luna balances found, append them to the spreadsheet rows before they're sorted:
+  if (anchor_balances_array) spreadsheet_protocol_rows.push(anchor_balances_array);
 
   // sort final spreadsheet_rows array:
   const sorted_protocols = spreadsheet_protocol_rows.sort(function(a, b) {
     return Math.abs(b[5]) - Math.abs(a[5]);
   });
-  // const sorted_wallet = spreadsheet_wallet_rows.sort(function(a, b) {
-  //   return Math.abs(b[5]) - Math.abs(a[5]);
-  // });
 
-  // console.log("SORTED: ", sorted_protocols)
   return sorted_protocols.concat(spreadsheet_wallet_rows);
 };
 
@@ -486,3 +476,46 @@ fetch_NZD_USD_exchange_rate = () => {
   const exchange_rate = full_json.data.DAI.quote.NZD.price
   return exchange_rate
 };
+
+
+// For now only fetches balances from Anchor Protocol:
+fetch_terra_protocols = (terra_luna_address) => {
+
+  if (terra_luna_address.length > 0) {
+    const uri = 'https://graph.contco.dev/';
+    const graphql = JSON.stringify({
+      query: `{\r\nassets(address: \"${terra_luna_address}\") {\r\nanchor {\r\nearn {\r\nreward {\r\napy\r\nname\r\nreward\r\nstaked\r\n}\r\n}\r\n}\r\n}\r\n}\r\n`,
+      variables: {}
+    })
+
+    const params = {
+      method: 'POST',
+      uri,
+      payload: graphql,
+      headers: {
+        DNT: "1",
+        'Content-Type': "application/json"
+      },
+      redirect: 'follow'
+    };
+
+    const result = UrlFetchApp.fetch(uri, params); 
+    const response_txt = result.getContentText();
+    // console.log(response_txt);
+    return response_txt
+  }
+};
+
+
+format_terra_data = (raw_json, terra_luna_address) => {
+  const real_json = JSON.parse(raw_json);
+  const exchange_rate = fetch_NZD_USD_exchange_rate();
+
+  const quantity = real_json.data.assets.anchor.earn.reward.staked
+  const balance = quantity * exchange_rate;
+  const apy = real_json.data.assets.anchor.earn.reward.apy + '%';
+
+  const terra_anchor_row_array = [['Anchor'], ['UST'], ['UST in Anchor Protocol'], ['FARM'], [quantity], [balance], [apy], [0], ['-'], ['terra luna'], [terra_luna_address]];
+
+  return terra_anchor_row_array;
+}
