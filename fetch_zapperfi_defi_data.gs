@@ -5,6 +5,7 @@ function daily_worldwide_crawl() {
   const formatted_protocol_list = format_protocol_list(protocol_list);
   const protocol_balances_array = zapperfi_get_balances_list(zapperfi_api_key, formatted_protocol_list, wallet_address_list);
   update_daily_staging_hub(protocol_balances_array);
+  main_fetch_defi_balances()
 };
 
 
@@ -150,6 +151,11 @@ update_daily_staging_hub = (valid_protocols_array) => {
     daily_staging_sheet.getRange(counter+2, 2, 1).setValues([[unique_networks.join(',')]]);
     counter++;
   }
+
+  // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
+  const cells_to_clear = 10;
+  const clear_range = daily_staging_sheet.getRange(`A${counter + 2}:B${counter + (cells_to_clear+2)}`)
+  clear_range.clearContent();
 };
 
 
@@ -256,13 +262,13 @@ extract_assets = (asset_array, wallet_address) => {
 ////// things to fetch out:
 // protocol name
 // network
-// current asset price? (AVAX price in USD)
+// current asset price (USD)
 // current wallet address - matching this value
 // borrowAPY
 // supplyAPY
 // my token balance - quantity (tokens/balance)
 // my token balance - USD (tokens/balanceUSD)
-// APY - not sure what APY this actually is? but will be useful
+// APY - not sure what APY this actually is? but will be useful - it doesn't include rewards APY
 // liquidation threshold!
 // claimable rewards balance - token type of reward
 // claimable rewards balance - balance (quantity)
@@ -371,19 +377,21 @@ extract_token = (token_array) => {
     const token_json = token_array[val];
 
     if (token_json.type === "interest-bearing" || token_json.type === "base" || token_json.type === "pool" || token_json.type === "vault") {
-      const token_response = {
-        network: token_json.network,
-        address: token_json.address,
-        symbol: token_json.symbol,
-        label: token_json.label ? token_json.label : '',
-        quantity: token_json.balance,
-        balanceUSD: token_json.balanceUSD,
-        priceUSD: token_json.price,
-        borrowApy: token_json.borrowApy ? token_json.borrowApy : 0,
-        supplyApy: token_json.supplyApy ? token_json.supplyApy : 0,
-      };
+      if (token_json.metaType !== 'claimable') {
+          const token_response = {
+          network: token_json.network,
+          address: token_json.address,
+          symbol: token_json.symbol,
+          label: token_json.label ? token_json.label : '',
+          quantity: token_json.balance,
+          balanceUSD: token_json.balanceUSD,
+          priceUSD: token_json.price,
+          borrowApy: token_json.borrowApy ? token_json.borrowApy : 0,
+          supplyApy: token_json.supplyApy ? token_json.supplyApy : 0,
+        };
 
-      final_token_stats.push(token_response);
+        final_token_stats.push(token_response);
+      }
     }
     else if (token_json.type === "claimable") {
       // ehh skip claimable tokens for now, not interested in capturing.
@@ -512,7 +520,7 @@ format_terra_data = (raw_json, terra_luna_address) => {
   const exchange_rate = fetch_NZD_USD_exchange_rate();
 
   const quantity = real_json.data.assets.anchor.earn.reward.staked
-  const balance = quantity * exchange_rate;
+  const balance = quantity * exchange_rate; // it's all UST for now, and APY isn't very detailed, so just using quantity for rough balance.
   const apy = real_json.data.assets.anchor.earn.reward.apy + '%';
 
   const terra_anchor_row_array = [['Anchor'], ['UST'], ['UST in Anchor Protocol'], ['FARM'], [quantity], [balance], [apy], [0], ['-'], ['terra luna'], [terra_luna_address]];
