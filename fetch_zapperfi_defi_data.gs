@@ -204,8 +204,28 @@ format_zapperfi_json_responses = (raw_zapperfi_json_responses) => {
       const label = current_record.label;
 
       const asset_resp = extract_assets(current_record.assets, wallet_address);
+      // console.log("current asset_resp: ", asset_resp);
 
-      final_protocol_stats[label] ? Object.assign(final_protocol_stats[label], asset_resp) : final_protocol_stats[label] = asset_resp;
+      // if we already have an element in the final array for this Protocol:
+      const current_asset_wallet = Object.keys(asset_resp)[0];
+
+      if (final_protocol_stats[label]) {
+        // if asset_resp wallet address is the same, take the object value out existing final_protocol_stats matching 
+        // the wallet address, combine the existing with old one, then form full new final object.
+        if (final_protocol_stats[label][current_asset_wallet]) {
+          const new_element = asset_resp[current_asset_wallet];
+          for (const element in new_element) {
+            final_protocol_stats[label][current_asset_wallet].push(new_element[element]);
+          }
+        }
+        // else if there is already a value for this Protocol, but there isn't a matching sub-element for this wallet yet, then combine existing sub-elements with this:
+        else if (final_protocol_stats[label]) {
+          Object.assign(final_protocol_stats[label], asset_resp)
+        }
+      } 
+      else {
+        final_protocol_stats[label] = asset_resp;
+      }
     }
     // console.log("final_protocol_stats", final_protocol_stats);
     return final_protocol_stats;
@@ -377,6 +397,7 @@ extract_token = (token_array) => {
     const token_json = token_array[val];
 
     if (token_json.type === "interest-bearing" || token_json.type === "base" || token_json.type === "pool" || token_json.type === "vault") {
+      // console.log("current token: ", token_response);
       if (token_json.metaType !== 'claimable') {
           const token_response = {
           network: token_json.network,
@@ -389,7 +410,6 @@ extract_token = (token_array) => {
           borrowApy: token_json.borrowApy ? token_json.borrowApy : 0,
           supplyApy: token_json.supplyApy ? token_json.supplyApy : 0,
         };
-
         final_token_stats.push(token_response);
       }
     }
@@ -425,13 +445,13 @@ const exchange_rate = fetch_NZD_USD_exchange_rate();
 
       // for each asset
       for (const asset in assets) {
+        // console.log("current asset: ", assets[asset]);
         const a = assets[asset]
         const type = a.type.toUpperCase();
         const balanceNZD = a.balanceUSD * exchange_rate;
         const appName = a.appName;
         const tokens = a.tokens;
         const isLoan = a.isLoan ? 'YES' : '-'
-        // console.log("current asset: ", assets[asset]);
 
         // for each token found in this asset
         for (const token in tokens) {
