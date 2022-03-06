@@ -152,6 +152,9 @@ update_daily_staging_hub = (valid_protocols_array) => {
     counter++;
   }
 
+  // Set new last successful modified date cell:
+  const currentDateTime = Utilities.formatDate(new Date(), "GMT+12", "dd/MM/yyyy HH:mm:ss a '(GMT+12)'")
+  daily_staging_sheet.getRange('G4').setValues([[currentDateTime]]);
   // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
   const cells_to_clear = 10;
   const clear_range = daily_staging_sheet.getRange(`A${counter + 2}:B${counter + (cells_to_clear+2)}`)
@@ -204,11 +207,10 @@ format_zapperfi_json_responses = (raw_zapperfi_json_responses) => {
       const label = current_record.label;
 
       const asset_resp = extract_assets(current_record.assets, wallet_address);
+      const current_asset_wallet = Object.keys(asset_resp)[0];
       // console.log("current asset_resp: ", asset_resp);
 
-      // if we already have an element in the final array for this Protocol:
-      const current_asset_wallet = Object.keys(asset_resp)[0];
-
+      // If we already have an element in the final array for this Protocol:
       if (final_protocol_stats[label]) {
         // if asset_resp wallet address is the same, take the object value out existing final_protocol_stats matching 
         // the wallet address, combine the existing with old one, then form full new final object.
