@@ -155,6 +155,7 @@ update_daily_staging_hub = (valid_protocols_array) => {
   // Set new last successful modified date cell:
   const currentDateTime = Utilities.formatDate(new Date(), "GMT+12", "dd/MM/yyyy HH:mm:ss a '(GMT+12)'")
   daily_staging_sheet.getRange('G4').setValues([[currentDateTime]]);
+
   // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
   const cells_to_clear = 10;
   const clear_range = daily_staging_sheet.getRange(`A${counter + 2}:B${counter + (cells_to_clear+2)}`)
@@ -493,6 +494,10 @@ update_defi_spreadsheet = (final_formatted_data) => {
 
   const range = defi_summary_spreadsheet.getRange(`A2:K${row_count + 1}`)
   range.setValues(final_formatted_data);
+
+  // Set new last successful modified date cell:
+  const currentDateTime = Utilities.formatDate(new Date(), "GMT+12", "dd/MM/yyyy HH:mm:ss a '(GMT+12)'")
+  defi_summary_spreadsheet.getRange('N7').setValues([[currentDateTime]]);
 
   // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
   const cells_to_clear = 20;
