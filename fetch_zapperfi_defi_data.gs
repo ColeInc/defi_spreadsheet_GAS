@@ -13,7 +13,8 @@ function daily_worldwide_crawl() {
 function main_fetch_defi_balances() {
   const {wallet_address_list, zapperfi_api_key, terra_luna_address} = getConstants();
   const protocol_network_pairs = fetch_daily_staging_hub();
-  const anchor_balance = fetch_terra_protocols(terra_luna_address);
+  // const anchor_balance = fetch_terra_protocols(terra_luna_address);
+  let anchor_balance;
   const anchor_balances_array = !anchor_balance ? false : format_terra_data(anchor_balance, terra_luna_address);
   const zapperfi_json_responses = zapperfi_get_balances_list(zapperfi_api_key, protocol_network_pairs, wallet_address_list);
   const final_formatted_json = format_zapperfi_json_responses(zapperfi_json_responses);
@@ -26,7 +27,7 @@ function main_fetch_defi_balances() {
 zapperfi_get_protocol_list = (zapperfi_api_key) => {
 
   // ------------------------------------------------------------------------------------
-  const url = 'https://api.zapper.fi/v1/apps'; 
+  const url = 'https://api.zapper.fi/v1/apps-v3'; 
   // ------------------------------------------------------------------------------------
 
   // GET Request Template Styled Parameters:
@@ -44,6 +45,8 @@ zapperfi_get_protocol_list = (zapperfi_api_key) => {
     'gzip': true
   };
 
+
+console.log(url+encParams, params);
   const result = UrlFetchApp.fetch(url+encParams, params); 
   const response_txt = result.getContentText();
   
