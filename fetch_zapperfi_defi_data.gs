@@ -93,6 +93,11 @@ zapperfi_get_balances_list = (zapperfi_api_key, protocol_list, wallet_address_li
 
       // console.log(`current protocol/network: ${protocol} ${network}`);
 
+      // Blacklisted Networks/Items:
+      if (network === "polygon") {
+        return;
+      }
+
       const url = "https://api.zapper.fi/v1/protocols/" + protocol + "/balances";
       const addresses_split_array = wallet_address_list.split(",");
 
