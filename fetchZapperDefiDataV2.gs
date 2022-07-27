@@ -1,6 +1,6 @@
 function dailyFetchDefiBalances() {
-  const {networkList, walletAddressList, ZapperFiAPIKey } = getConstants();
-  const rawWalletBalances = fetchWalletBalances(networkList, walletAddressList, ZapperFiAPIKey);
+  const {networkList, walletAddressList, zapperFiAPIKey } = getConstants();
+  const rawWalletBalances = fetchWalletBalances(networkList, walletAddressList, zapperFiAPIKey);
   const finalFormattedJson = formatZapperResponses(rawWalletBalances);
   const finalFormattedData = constructSpreadsheetData(finalFormattedJson);
   updateDefiSpreadsheet(finalFormattedData);
@@ -8,11 +8,11 @@ function dailyFetchDefiBalances() {
 };
 
 
-fetchWalletBalances = (networkList, walletAddressList, ZapperFiAPIKey) => {
+fetchWalletBalances = (networkList, walletAddressList, zapperFiAPIKey) => {
   const url = "https://api.zapper.fi/v2/balances";
 
   const headers = {
-    "Authorization" : "Basic " + Utilities.base64Encode(ZapperFiAPIKey + ':' + "")
+    "Authorization" : "Basic " + Utilities.base64Encode(zapperFiAPIKey + ':' + "")
   };
 
   const params = {
@@ -67,7 +67,7 @@ formatZapperResponses = (rawWalletBalances) => {
 
       // If we already have an element in the final array for this Protocol:
       if (finalProtocolStats[protocol]) {
-        // if asset_resp wallet address is the same, take the object value out existing final_protocol_stats matching 
+        // if assetResp wallet address is the same, take the object value out existing finalProtocolStats matching 
         // the wallet address, combine the existing with old one, then form full new final object.
         if (finalProtocolStats[protocol][walletAddress]) {
           const newElement = assetResp[walletAddress];
@@ -111,20 +111,20 @@ extractAssets = (assetPayload) => {
   // deposits
   // if (!isEmpty(assetPayload.balance['deposits'])) {
   //   console.log("bing! deposits field is not empty.")
-  //   // const deposits_resp = extract_deposits(assetPayload);
-  //   // finalAssetStats[wallet_address].push(deposits_resp);
+  //   // const depositsResp = extractDeposits(assetPayload);
+  //   // finalAssetStats[walletAddress].push(depositsResp);
   // } 
   // debt
   // if (!isEmpty(assetPayload.balance['debt'])) {
   //   console.log("bing! debt field is not empty.")
-  //   // const debt_resp = extract_debt(assetPayload);
-  //   // finalAssetStats[wallet_address].push(debt_resp);
+  //   // const debtResp = extractDebt(assetPayload);
+  //   // finalAssetStats[walletAddress].push(debtResp);
   // }
   // vesting
   // if (!isEmpty(assetPayload.balance['vesting'])) {
   //   console.log("bing! vesting field is not empty.")
-  //   // const vesting_resp = extract_vesting(assetPayload);
-  //   // finalAssetStats[wallet_address].push(vesting_resp);
+  //   // const vestingResp = extractVesting(assetPayload);
+  //   // finalAssetStats[walletAddress].push(vestingResp);
   // }
   // wallet
   if (!isEmpty(assetPayload.balance['wallet'])) {
@@ -143,14 +143,14 @@ extractAssets = (assetPayload) => {
   // locked
   // if (!isEmpty(assetPayload.balance['locked'])) {
   //   console.log("bing! locked field is not empty.")
-  //   // const locked_resp = extract_locked(assetPayload);
-  //   // finalAssetStats[wallet_address].push(locked_resp);
+  //   // const lockedResp = extractLocked(assetPayload);
+  //   // finalAssetStats[walletAddress].push(lockedResp);
   // }
   // nft
   // if (!isEmpty(assetPayload.balance['nft'])) {
   //   console.log("bing! nft field is not empty.")
-  //   // const nft_resp = extract_nft(assetPayload);
-  //   // finalAssetStats[wallet_address].push(nft_resp);
+  //   // const nftResp = extractNft(assetPayload);
+  //   // finalAssetStats[walletAddress].push(nftResp);
   // }
 
   // Protocol, Ticker, Full Name, Asset Type, Quantity, Balance (NZD), Supply APY, Borrow APY, IsLoan, Network, Wallet Address, Percentage of Portfolio
@@ -280,28 +280,28 @@ extractClaimable = (assetPayload) => {
 };
 
 
-constructSpreadsheetData = (protocol_stats_array) => {
+constructSpreadsheetData = (protocolStatsArray) => {
 
 //  Ticker | Name | Protocol | Asset Type | Quantity | Balance (NZD) | Supply APY |	Borrow APY | Is Loan? |	Network	| Wallet
 
-const exchange_rate = fetchNZDtoUSDExchangeRate();
+const exchangeRate = fetchNZDtoUSDExchangeRate();
 let spreadsheetProtocolRows = [];
 let spreadsheetWalletRows = [];
 let spreadsheetClaimableRows = [];
 
 // for each protocol:
-  for (const protocol_balance in protocol_stats_array) {
-    const protocol = protocol_stats_array[protocol_balance]
+  for (const protocolBalance in protocolStatsArray) {
+    const protocol = protocolStatsArray[protocolBalance]
 
     // for each list of assets:
-    for (const asset_array in protocol) {
-      const assets = protocol[asset_array]
+    for (const assetArray in protocol) {
+      const assets = protocol[assetArray]
 
       // for each asset:
       for (const asset in assets) {
         // console.log("current asset: ", assets[asset]);
         const a = assets[asset]
-        const balanceNZD = a.balanceUSD * exchange_rate;
+        const balanceNZD = a.balanceUSD * exchangeRate;
 
         const spreadsheetRow = [[a.protocol], [a.ticker], [a.fullName], [a.type], [a.quantity], [balanceNZD], [a.supplyAPY], [a.borrowAPY], [a.isLoan], [a.network], [a.walletAddress]];
 
@@ -335,30 +335,30 @@ let spreadsheetClaimableRows = [];
 
 
 fetchNZDtoUSDExchangeRate = () => {
-  const full_json = JSON.parse(get_coin_info('DAI'));
-  const exchange_rate = full_json.data.DAI.quote.NZD.price
-  return exchange_rate
+  const fullJson = JSON.parse(getCoinInfo('DAI'));
+  const exchangeRate = fullJson.data.DAI.quote.NZD.price
+  return exchangeRate
 };
 
 
 updateDefiSpreadsheet = (finalFormattedData) => {
 
-  const source_ss = SpreadsheetApp.getActiveSpreadsheet();
-  const defi_summary_spreadsheet = source_ss.getSheetByName("DeFi Summary");
-  const row_count = finalFormattedData.length;
-  // console.log("row count", row_count);
+  const sourceSS = SpreadsheetApp.getActiveSpreadsheet();
+  const defiSummarySpreadsheet = sourceSS.getSheetByName("DeFi Summary");
+  const rowCount = finalFormattedData.length;
+  // console.log("row count", rowCount);
 
-  const range = defi_summary_spreadsheet.getRange(`A2:K${row_count + 1}`)
+  const range = defiSummarySpreadsheet.getRange(`A2:K${rowCount + 1}`)
   range.setValues(finalFormattedData);
 
   // Set new last successful modified date cell:
   const currentDateTime = Utilities.formatDate(new Date(), "GMT+12", "dd/MM/yyyy HH:mm:ss a '(GMT+12)'")
-  defi_summary_spreadsheet.getRange('N7').setValues([[currentDateTime]]);
+  defiSummarySpreadsheet.getRange('N7').setValues([[currentDateTime]]);
 
   // set the last x rows of cells to blank so that we can overwrite any overflowing protocols from previous run:
-  const cells_to_clear = 20;
-  const clear_range = defi_summary_spreadsheet.getRange(`A${row_count + 2}:K${row_count + (cells_to_clear+2)}`)
-  clear_range.clearContent();
+  const cellsToClear = 20;
+  const clearRange = defiSummarySpreadsheet.getRange(`A${rowCount + 2}:K${rowCount + (cellsToClear+2)}`)
+  clearRange.clearContent();
 
   console.log("✔️ Successfully updated spreadsheet! ✔️")
 }
