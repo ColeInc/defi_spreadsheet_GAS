@@ -192,13 +192,13 @@ extractAssets = (assetPayload) => {
         return;
       }
 
-      asset.assets.map(token => {
+      asset.assets.map(tokens => {
         Logger.log("RAW TOKEN:");
-        Logger.log(JSON.stringify(token));
+        Logger.log(JSON.stringify(tokens));
 
-        token = token;
+        // tokens = tokens;
         // let token = token;
-        const fullName = token.displayProps.label;
+        const fullName = tokens.displayProps.label;
         let type = "STAKING";
 
         // sometimes there is a nested token object. in a case where there is one, use that instead:
@@ -206,13 +206,13 @@ extractAssets = (assetPayload) => {
         //   Logger.log(JSON.stringify(token.tokens[0].tokens[0]));
         //   token = token.tokens[0].tokens[0];
         // }
-        let ticker = token.symbol;
-        if (token.tokens) {
-          Logger.log(JSON.stringify(token.tokens[0]));
-          token = token.tokens[0];
+        let ticker = tokens.symbol;
+        if (tokens.tokens) {
+          Logger.log(JSON.stringify(tokens.tokens));
+          tokens = tokens.tokens;
         }
         console.log("FINAL token:");
-        Logger.log(JSON.stringify(token));
+        Logger.log(JSON.stringify(tokens));
 
 
         // Fetching ticker & balance:
@@ -230,51 +230,59 @@ extractAssets = (assetPayload) => {
         //   })
         // }
 
-        ticker = ticker ?? token.symbol;
+        tokens.map((token) => {
+          console.log("token symbol:");
+          Logger.log(token.symbol);
 
-        let quantity = token.balance;
-        const balanceUSD = token.balanceUSD;
+          ticker = token.symbol ?? ticker;
 
-        // Fetching APY:
-        let supplyAPY = 0;
-        let borrowAPY = 0;
-        let isLoan = "-"
+          let quantity = token.balance;
+          const balanceUSD = token.balanceUSD;
+          type = (token.metaType === 'claimable') ? token.metaType.toUpperCase() : type;
 
-        console.log("token.displayProps.tertiaryLabel");
-        // console.log(token.displayProps);
-        // console.log(token.displayProps.tertiaryLabel);
+          // Fetching APY:
+          let supplyAPY = 0;
+          let borrowAPY = 0;
+          let isLoan = "-"
 
-        // if (token.displayProps) {
-          // console.log("magically gets here???");
-          console.log(token.displayProps);
+          console.log("token.displayProps.tertiaryLabel");
+          // console.log(token.displayProps);
+          // console.log(token.displayProps.tertiaryLabel);
 
-          const APY = (token.displayProps && token.displayProps.tertiaryLabel) ? token.displayProps.tertiaryLabel : 0;
-          // If our balance is negative it means the current token is part of a loan, therefore the corresponding APY given will be the BORROW APY. Otherwise if the balance is positive we are simply given the SUPPLY APY for that token:
-          if (balanceUSD > 0) {
-            supplyAPY = APY;
-          }
-          else {
-            borrowAPY = APY;
-            isLoan = "YES"
-            type = "BORROW"
-          }
-        // }
+          // if (token.displayProps) {
+            // console.log("magically gets here???");
+            // console.log(token.displayProps);
 
-        const assetResponse = {
-          protocol,
-          ticker,
-          fullName,
-          type,
-          quantity,
-          balanceUSD,
-          supplyAPY,
-          borrowAPY,
-          isLoan,
-          network,
-          walletAddress
-        };
+            const APY = (token.displayProps && token.displayProps.tertiaryLabel) ? token.displayProps.tertiaryLabel : 0;
+            // If our balance is negative it means the current token is part of a loan, therefore the corresponding APY given will be the BORROW APY. Otherwise if the balance is positive we are simply given the SUPPLY APY for that token:
+            if (balanceUSD > 0) {
+              supplyAPY = APY;
+            }
+            else {
+              borrowAPY = APY;
+              isLoan = "YES"
+              type = "BORROW"
+            }
+          // }
 
-        finalAssetStats[walletAddress].push(assetResponse);
+          const assetResponse = {
+            protocol,
+            ticker,
+            fullName,
+            type,
+            quantity,
+            balanceUSD,
+            supplyAPY,
+            borrowAPY,
+            isLoan,
+            network,
+            walletAddress
+          };
+
+          console.log(JSON.stringify(assetResponse))
+          finalAssetStats[walletAddress].push(assetResponse);
+        
+        })
       });
 
     })
