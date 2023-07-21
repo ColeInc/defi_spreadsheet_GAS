@@ -50,8 +50,6 @@ const fetchWalletBalances = (networkList, walletAddressList, zapperFiAPIKey, tok
 formatStakedTokenResponses = (rawWalletBalances) => {
   let finalProtocolStats = [];
 
-  // Stripping some unnecessary text from around the pure json data we want:
-  // const balancesArray = rawWalletBalances.slice(14, -21).split("event: balance");
   const balancesArray = JSON.parse(rawWalletBalances);
 
   // for each individual protocol:network pair:
@@ -59,13 +57,10 @@ formatStakedTokenResponses = (rawWalletBalances) => {
     // Logger.log("item:")
     // Logger.log(balancesArray[i])
 
-    // const payload = JSON.parse(balancesArray[i].replace('data:',''));
     const payload = balancesArray[i];
 
     // iterate app sub-element and fetch each individual holding out of it:
-    // if (payload.errors.length < 1) {
     if (payload) {
-      // const appId = payload.appId;
       const protocol = payload.appId;
       const walletAddress = payload.address;
 
@@ -109,26 +104,16 @@ formatStakedTokenResponses = (rawWalletBalances) => {
 formatRawWalletResponses = (formatedStakedTokenJson, rawWalletBalances) => {
   let finalProtocolStats = formatedStakedTokenJson;
 
-  // Stripping some unnecessary text from around the pure json data we want:
-  // const balancesArray = rawWalletBalances.slice(14, -21).split("event: balance");
   const walletsArray = JSON.parse(rawWalletBalances);
-
-  // const walletKeysList = Object.keys(rawWalletBalances);
-  // console.log("walletKeys that we are iterating:")
-  // console.log(walletKeysList)
 
   // for each wallet address found:
   for (const walletAddress in walletsArray) {
-    Logger.log("WALLET item:")
-    Logger.log(JSON.stringify(walletsArray[walletAddress]))
+    // Logger.log("WALLET item:")
+    // Logger.log(JSON.stringify(walletsArray[walletAddress]))
 
-    // const payload = JSON.parse(walletsArray[i].replace('data:',''));
     const tokenArray = walletsArray[walletAddress];
 
-    // iterate app sub-element and fetch each individual holding out of it:
-    // if (tokenArray.errors.length < 1) {
     if (tokenArray) {
-      // const appId = tokenArray.appId;
       const protocol = "WALLET"; // there is no protocol since it is just a token sitting in our wallet, therefore hardcode it.
       const type = "WALLET";
 
@@ -136,7 +121,7 @@ formatRawWalletResponses = (formatedStakedTokenJson, rawWalletBalances) => {
 
       tokenArray.map((token) => {
           const assetResponse = extractWalletTokenData(token, protocol, null, walletAddress, null, type, null);
-          console.log(JSON.stringify(assetResponse))
+          // console.log(JSON.stringify(assetResponse))
           if (assetResp[walletAddress]) {
           assetResp[walletAddress].push(assetResponse);
           } else {
@@ -174,22 +159,20 @@ formatRawWalletResponses = (formatedStakedTokenJson, rawWalletBalances) => {
 
 
 extractAssets = (assetPayload) => {
-  Logger.log("extractAssets payload:");
-  Logger.log(assetPayload);
+  // Logger.log("extractAssets payload:");
+  // Logger.log(assetPayload);
   let finalAssetStats = {};
 
   function isEmpty(obj) {
     return Object.keys(obj).length === 0;
   }
 
-  // const protocol = (assetPayload.app) ? assetPayload.app.displayProps.appName : assetPayload.appId;
   const protocol = assetPayload.appName;
-  Logger.log("PROTOCOL: -------------------------------------------------------------------");
-  Logger.log(protocol);
-  Logger.log("-------------------------------------------------------------------");
+  // Logger.log("PROTOCOL: -------------------------------------------------------------------");
+  // Logger.log(protocol);
+  // Logger.log("-------------------------------------------------------------------");
 
   const network = assetPayload.network;
-  // const walletAddress = assetPayload.addresses[0];
   const walletAddress = assetPayload.address;
   finalAssetStats[walletAddress] = [];
 
@@ -248,80 +231,44 @@ extractAssets = (assetPayload) => {
   // Logger.log(assetPayload.products);
     
 
-  // if (assetPayload.products && assetPayload.products.assets) {
   if (assetPayload.products) {
-    Logger.log("assetPayload.products");
-    Logger.log(assetPayload.products);
-
     assetPayload.products.map((asset) => {
-      Logger.log("curr asset");
-      Logger.log(asset);
+      // Logger.log("curr asset");
+      // Logger.log(asset);
 
       if (!asset.assets) {
         return;
       }
 
       asset.assets.map(tokens => {
-        Logger.log("RAW TOKEN:");
-        Logger.log(JSON.stringify(tokens));
+        // Logger.log("RAW TOKEN:");
+        // Logger.log(JSON.stringify(tokens));
 
-        // tokens = tokens;
-        // let token = token;
         const fullName = tokens.displayProps.label;
         let type = "STAKING";
 
-        // sometimes there is a nested token object. in a case where there is one, use that instead:
-        // if (token.tokens) {
-        //   Logger.log(JSON.stringify(token.tokens[0].tokens[0]));
-        //   token = token.tokens[0].tokens[0];
-        // }
         let ticker = tokens.symbol;
         if (tokens.tokens) {
-          Logger.log(JSON.stringify(tokens.tokens));
+          // Logger.log(JSON.stringify(tokens.tokens));
           tokens = tokens.tokens;
         }
-        console.log("FINAL token:");
-        Logger.log(JSON.stringify(tokens));
-
-
-        // Fetching ticker & balance:
-        // let ticker = token.symbol;
-        // let quantity = 0;
-        // if (token.context && token.context.symbol) {
-        //   ticker = token.context.symbol;
-        //   quantity = token.context.balance;
-        // } else if (token.breakdown) {
-        //   token.breakdown.map((breakdownItem) => {
-        //     if (breakdownItem.context.symbol && breakdownItem.metaType === "supplied") {
-        //       ticker = breakdownItem.context.symbol;
-        //       quantity = breakdownItem.context.balance;
-        //     }
-        //   })
-        // }
 
         tokens.map((token) => {
           const assetResponse = extractTokenData(token, protocol, network, walletAddress, fullName, type, ticker);
-          console.log(JSON.stringify(assetResponse))
           finalAssetStats[walletAddress].push(assetResponse);
-        
         })
       });
-
     })
-
   }
 
-  console.log("finalAssetStats: ", finalAssetStats)
+  // console.log("finalAssetStats: ", finalAssetStats)
   return finalAssetStats;
 };
 
 
 extractTokenData = (token, protocol, network, walletAddress, fullName, type, ticker) => {
-  Logger.log("init extractTokenData TOKEN:");
-  Logger.log(JSON.stringify(token));
-
-  console.log("token symbol:");
-  Logger.log(token.symbol);
+  // Logger.log("init extractTokenData TOKEN:");
+  // Logger.log(JSON.stringify(token));
 
   ticker = token.symbol ?? ticker;
   network = token.network ?? network;
@@ -336,11 +283,6 @@ extractTokenData = (token, protocol, network, walletAddress, fullName, type, tic
   let supplyAPY = 0;
   let borrowAPY = 0;
   let isLoan = "-"
-
-  console.log("token.displayProps.tertiaryLabel");
-  // console.log(token.displayProps);
-  // console.log(token.displayProps.tertiaryLabel);
-
 
   const APY = (token.displayProps && token.displayProps.tertiaryLabel) ? token.displayProps.tertiaryLabel : 0;
   // If our balance is negative it means the current token is part of a loan, therefore the corresponding APY given will be the BORROW APY. Otherwise if the balance is positive we are simply given the SUPPLY APY for that token:
@@ -371,13 +313,10 @@ extractTokenData = (token, protocol, network, walletAddress, fullName, type, tic
 
 
 extractWalletTokenData = (token, protocol, network, walletAddress, fullName, type, ticker) => {
-  Logger.log("init extractWalletTokenData TOKEN:");
-  Logger.log(JSON.stringify(token));
+  // Logger.log("init extractWalletTokenData TOKEN:");
+  // Logger.log(JSON.stringify(token));
   
   const subtoken = token.token;
-
-  console.log("token symbol:");
-  Logger.log(subtoken.symbol);
 
   ticker = subtoken.symbol;
   network = token.network;
@@ -385,28 +324,10 @@ extractWalletTokenData = (token, protocol, network, walletAddress, fullName, typ
 
   let quantity = subtoken.balance;
   const balanceUSD = subtoken.balanceUSD;
-  // type = (token.metaType === 'claimable') ? token.metaType.toUpperCase() : type;
-
-  // Fetching APY:
   const supplyAPY = 0;
   const borrowAPY = 0;
   const isLoan = "-"
 
-  // console.log("token.displayProps.tertiaryLabel");
-  // console.log(token.displayProps);
-  // console.log(token.displayProps.tertiaryLabel);
-
-
-  // const APY = (token.displayProps && token.displayProps.tertiaryLabel) ? token.displayProps.tertiaryLabel : 0;
-  // // If our balance is negative it means the current token is part of a loan, therefore the corresponding APY given will be the BORROW APY. Otherwise if the balance is positive we are simply given the SUPPLY APY for that token:
-  // if (balanceUSD > 0) {
-  //   supplyAPY = APY;
-  // }
-  // else {
-  //   borrowAPY = APY;
-  //   isLoan = "YES"
-  //   type = "BORROW"
-  // }
 
   const assetResponse = {
     protocol,
